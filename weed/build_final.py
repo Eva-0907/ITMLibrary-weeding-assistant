@@ -14,7 +14,7 @@ Steps:
 
 Usage:
     python3 build_final.py
-    python3 build_final.py --weed weeding_report9.xlsx --unicat UniCat-lookup-results3.xlsx --out ITM_weeding_final.xlsx
+    python3 build_final.py --weed data/output/weeding_report9.xlsx --unicat data/output/UniCat-lookup-results3.xlsx --out data/output/ITM_weeding_final.xlsx
 """
 
 import sys
@@ -210,9 +210,9 @@ def write_sheet(ws, headers, rows, header_fill):
 
 def main():
     parser = argparse.ArgumentParser(description="Merge weeding report + UniCat results — ITG Antwerp")
-    parser.add_argument("--weed",   default="weeding_report9.xlsx",      help="Weeding report (default: weeding_report9.xlsx)")
-    parser.add_argument("--unicat", default="UniCat-lookup-results3.xlsx", help="UniCat results (default: UniCat-lookup-results3.xlsx)")
-    parser.add_argument("--out",    default="ITM_weeding_final.xlsx",     help="Output file (default: ITM_weeding_final.xlsx)")
+    parser.add_argument("--weed",   default="data/output/weeding_report9.xlsx",      help="Weeding report (default: data/output/weeding_report9.xlsx)")
+    parser.add_argument("--unicat", default="data/output/UniCat-lookup-results3.xlsx", help="UniCat results (default: data/output/UniCat-lookup-results3.xlsx)")
+    parser.add_argument("--out",    default="data/output/ITM_weeding_final.xlsx",     help="Output file (default: data/output/ITM_weeding_final.xlsx)")
     args = parser.parse_args()
 
     # Validate inputs

@@ -25,7 +25,7 @@ Changes in v3 vs v2:
 
 Usage:
     python3 unicat_lookup3.py
-    python3 unicat_lookup3.py --input weeding_report9.xlsx --out UniCat-lookup-results3.xlsx
+    python3 unicat_lookup3.py --input data/output/weeding_report9.xlsx --out data/output/UniCat-lookup-results3.xlsx
     python3 unicat_lookup3.py --resume   # skip already-looked-up rows
 
 Requirements:
@@ -159,8 +159,8 @@ def ensure_col(ws, header_name):
 # ── Main ─────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description="UniCat ISBN availability check — ITG Antwerp")
-    parser.add_argument("--input",  default="weeding_report9.xlsx",        help="Input XLSX (default: weeding_report9.xlsx)")
-    parser.add_argument("--out",    default="UniCat-lookup-results3.xlsx", help="Output XLSX (default: UniCat-lookup-results3.xlsx)")
+    parser.add_argument("--input",  default="data/output/weeding_report9.xlsx",        help="Input XLSX (default: data/output/weeding_report9.xlsx)")
+    parser.add_argument("--out",    default="data/output/UniCat-lookup-results3.xlsx", help="Output XLSX (default: data/output/UniCat-lookup-results3.xlsx)")
     parser.add_argument("--resume", action="store_true", help="Skip rows already processed")
     parser.add_argument("--debug",  action="store_true", help="Print raw HTML for first lookup")
     args = parser.parse_args()

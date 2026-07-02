@@ -4,9 +4,9 @@ Library Weeding Agent — ITG Antwerp
 Tropical Medicine & Global Health collection
 
 Usage:
-    python weed.py collection.ris
-    python weed.py collection.ris --students students.csv --staff staff.csv
-    python weed.py collection.ris --students students.csv --staff staff.csv --out results.xlsx
+    python weed.py data/books_2_ris.txt
+    python weed.py data/books_2_ris.txt --students data/Uitleen_2019-2026.csv --staff data/Uitleen_collega's.csv
+    python weed.py data/books_2_ris.txt --students data/Uitleen_2019-2026.csv --staff data/Uitleen_collega's.csv --out data/output/weeding_report9.xlsx
 
 Changes in v8 vs v7:
   - OUTBREAK_TIMELINE keywords tightened to multi-word phrases and named-entity anchors
@@ -877,7 +877,7 @@ def main():
     parser.add_argument("ris",               help="Path to .ris file(s) — space-separated for multiple files", nargs="+")
     parser.add_argument("--students",        help="Student loans CSV (semicolon-delimited)")
     parser.add_argument("--staff",           help="Staff loans CSV/TSV (tab-delimited)")
-    parser.add_argument("--out",             default="weeding_report9.xlsx", help="Output XLSX filename")
+    parser.add_argument("--out",             default="data/output/weeding_report9.xlsx", help="Output XLSX filename")
     args = parser.parse_args()
 
     # Load RIS
