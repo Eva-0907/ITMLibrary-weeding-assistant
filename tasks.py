@@ -137,6 +137,7 @@ if __name__ == "__main__":
         extra = args[1:]
         cmd_run(extra if extra else None)
     elif command == "run-concurrent":
-        cmd_run(["--concurrent"])
+        extra = args[1:]
+        cmd_run(["--concurrent"] + extra)
     else:
         COMMANDS[command]()

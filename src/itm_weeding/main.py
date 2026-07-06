@@ -26,7 +26,7 @@ from itm_weeding.core import (
     gf,
 )
 from itm_weeding.report import export_xlsx
-from itm_weeding.unicat import UniCatCache, check_unicat_isbn, batch_check_unicat_isbns
+from itm_weeding.unicat import UniCatCache, UniCatLookup
 
 
 def normalise_title(title, max_length=60):
@@ -122,10 +122,11 @@ def main():
     )
     args = parser.parse_args()
 
-    # Initialize UniCat cache
+    # Initialize UniCat cache and lookup client
     unicat_cache = UniCatCache()
+    unicat = UniCatLookup(concurrency=20)
     if args.no_cache:
-        print("UniCat cache DISABLED (will re-lookup all ISBNs)")
+        print("UniCat cache DISABLED — all ISBNs will be fetched from API")
     elif len(unicat_cache) > 0:
         print(f"UniCat cache loaded: {len(unicat_cache)} entries")
 
@@ -244,32 +245,40 @@ def main():
     # Process
     process_records = records[:primary_count]
     print(f"\nProcessing {len(process_records):,} records...")
-    
-    # Concurrent UniCat batch lookup (if enabled)
-    if args.concurrent:
-        print("Pre-fetching UniCat data (concurrent batch)...")
-        isbns_to_check = set()
-        for rec in process_records:
-            isbn = get_isbn(rec)
-            if isbn:
-                # Only lookup if not already cached or cache is disabled
-                if args.no_cache or not unicat_cache.get(isbn):
-                    isbns_to_check.add(isbn)
-        
-        if isbns_to_check:
-            print(f"  Looking up {len(isbns_to_check)} ISBNs (20 concurrent)...")
-            batch_results = batch_check_unicat_isbns(
-                list(isbns_to_check),
-                concurrency=20,
-                show_progress=True
+
+    # ── Phase 1: collect UniCat data ────────────────────────────────────────
+    # Gather all ISBNs that need a result.
+    # If cache is enabled, use whatever is already stored; if not, always query the API.
+    all_isbns = [get_isbn(rec) for rec in process_records]
+    unique_isbns = {isbn for isbn in all_isbns if isbn}
+
+    isbns_to_fetch = {
+        isbn for isbn in unique_isbns
+        if args.no_cache or not unicat_cache.get(isbn)
+    }
+
+    if isbns_to_fetch:
+        print(f"Pre-fetching UniCat data for {len(isbns_to_fetch):,} ISBNs...")
+        if args.concurrent:
+            batch_results = unicat.batch_check_isbns(
+                list(isbns_to_fetch),
+                show_progress=True,
             )
-            # Store in cache
-            for isbn, result in batch_results.items():
-                if result:
-                    unicat_cache.set(isbn, result)
-            print(f"  Cached {len(batch_results)} results")
         else:
-            print("  All ISBNs already cached")
+            batch_results = {}
+            for isbn in isbns_to_fetch:
+                result, _ = unicat.check_isbn(isbn, retries=2)
+                batch_results[isbn] = result
+
+        fetched = sum(1 for v in batch_results.values() if v is not None)
+        print(f"  Fetched {fetched:,} results — storing in cache")
+        for isbn, result in batch_results.items():
+            unicat_cache.set(isbn, result)
+    else:
+        print("Pre-fetching UniCat data...")
+        print("  All ISBNs already cached")
+
+    # ── Phase 2: process records — always read from in-memory cache ─────────
     
     t0 = datetime.now()
     output_rows = []
@@ -289,20 +298,13 @@ def main():
         counts[rec_val] = counts.get(rec_val, 0) + 1
 
         isbn = get_isbn(rec)
-        
-        # Perform UniCat lookup (with caching)
+
+        # Phase 2: always read from cache (populated in phase 1)
         unicat_result = None
         if isbn:
-            if not args.no_cache:
-                # Try cache first
-                cached = unicat_cache.get(isbn)
-                if cached:
-                    unicat_result = cached.get("result")
-            
-            if not unicat_result:
-                # Either cache is disabled or item not in cache
-                unicat_result, _ = check_unicat_isbn(isbn, retries=2)
-                unicat_cache.set(isbn, unicat_result)
+            cached = unicat_cache.get(isbn)
+            if cached:
+                unicat_result = cached.get("result")
         
         output_rows.append(
             {

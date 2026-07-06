@@ -1,173 +1,143 @@
-"""UniCat web scraping for Belgian library availability."""
+"""UniCat SRU API lookup for Belgian library availability."""
 
 import time
 import random
 import urllib.parse
-import urllib3
+import xml.etree.ElementTree as ET
 
 import requests
-from bs4 import BeautifulSoup
 import aiohttp
 from sparp.sparp import SPARP, ResponseState
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-SESSION = requests.Session()
-SESSION.verify = False
-SESSION.headers.update({
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "en-GB,en;q=0.9",
-})
+_SRU_BASE = "http://www.unicat.be/sru"
+_SRU_NS = "http://www.loc.gov/zing/srw/"
 
 
-def check_unicat_isbn(isbn, retries=3, debug=False):
-    """Search UniCat by ISBN and check if any library holds it.
-    
-    Args:
-        isbn: ISBN to search
-        retries: Number of retry attempts on failure
-        debug: Print debug information
-    
-    Returns:
-        Tuple: ("held", None) if available, ("not_held", None) if sole/no holder,
-               (None, error_msg) if request failed
-    """
-    url = f"https://www.unicat.be/uniCat?func=search&query={urllib.parse.quote(isbn)}"
+class UniCatLookup:
+    """Client for the UniCat SRU API (Belgian union catalogue)."""
 
-    for attempt in range(retries):
-        try:
-            resp = SESSION.get(url, timeout=10, verify=False)
-            resp.raise_for_status()
+    def __init__(self, concurrency: int = 20, timeout: float = 10.0):
+        self.concurrency = concurrency
+        self.timeout = timeout
+        self._session = requests.Session()
 
-            soup = BeautifulSoup(resp.text, "html.parser")
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
 
-            # Check for checkAvailability link (indicates other libraries hold it)
-            if soup.find("a", {"data-action": "checkAvailability"}):
-                if debug:
-                    print(f"  ISBN {isbn}: HELD (checkAvailability link found)")
-                return ("held", None)
-
-            # No availability link found
-            if debug:
-                print(f"  ISBN {isbn}: NOT_HELD (no checkAvailability link)")
-            return ("not_held", None)
-
-        except requests.exceptions.RequestException as e:
-            if attempt < retries - 1:
-                wait = random.uniform(2, 5)
-                if debug:
-                    print(f"  ISBN {isbn}: Retry {attempt + 1}/{retries} after {wait:.1f}s ({e})")
-                time.sleep(wait)
-            else:
-                return (None, str(e))
-
-    return (None, "Max retries exceeded")
-
-
-def batch_check_unicat_isbns(isbns, concurrency=20, show_progress=False):
-    """Batch check ISBNs using concurrent requests with SPARP.
-    
-    Args:
-        isbns: List of ISBNs to check
-        concurrency: Maximum concurrent requests
-        show_progress: Show progress bar
-    
-    Returns:
-        Dict mapping ISBN -> ("held" | "not_held" | None)
-    """
-    if not isbns:
-        return {}
-    
-    # Build request configs for SPARP (without isbn in the dict itself)
-    requests_config = [
-        {
-            "method": "GET",
-            "url": f"https://www.unicat.be/uniCat?func=search&query={urllib.parse.quote(isbn)}",
-            "headers": {
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
-                ),
-                "Accept-Language": "en-GB,en;q=0.9",
-            },
+    def _build_url(self, isbn: str) -> str:
+        params = {
+            "version": "1.1",
+            "operation": "searchRetrieve",
+            "query": f"isbn={isbn}",
+            "maximumRecords": "1",
         }
-        for isbn in isbns
-    ]
-    
-    # Define response handler
-    def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
+        return f"{_SRU_BASE}?{urllib.parse.urlencode(params)}"
+
+    @staticmethod
+    def _parse_count(xml_text: str):
+        """Return numberOfRecords from an SRU XML response, or None on error."""
+        try:
+            root = ET.fromstring(xml_text)
+            el = root.find(f"{{{_SRU_NS}}}numberOfRecords")
+            if el is not None and el.text is not None:
+                return int(el.text)
+        except (ET.ParseError, ValueError):
+            pass
+        return None
+
+    @staticmethod
+    def _isbn_from_url(url: str) -> str:
+        raw_query = urllib.parse.parse_qs(
+            urllib.parse.urlparse(url).query
+        ).get("query", [""])[0]
+        return raw_query.removeprefix("isbn=")
+
+    @staticmethod
+    def _inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
         if response.status == 200:
             return ResponseState.SUCCESS
-        if response.status == 429 or response.status == 502 or response.status == 503:
-            return ResponseState.SOFT_FAIL  # Retry on rate limit / server errors
+        if response.status in (429, 502, 503):
+            return ResponseState.SOFT_FAIL
         return ResponseState.HARD_FAIL
-    
-    # Define response parser
-    async def parse_response(req_config: dict, response: aiohttp.ClientResponse) -> dict:
+
+    async def _parse_response(self, req_config: dict, response: aiohttp.ClientResponse) -> dict:
         text = await response.text()
-        soup = BeautifulSoup(text, "html.parser")
-        
-        # Check for checkAvailability link
-        has_availability = bool(soup.find("a", {"data-action": "checkAvailability"}))
-        
-        # Extract ISBN from URL query parameter
-        url = req_config["url"]
-        parsed_url = urllib.parse.urlparse(url)
-        query_params = urllib.parse.parse_qs(parsed_url.query)
-        isbn = query_params.get("query", [""])[0]
-        
+        count = self._parse_count(text)
+        isbn = self._isbn_from_url(req_config["url"])
         return {
             "isbn": isbn,
-            "result": "held" if has_availability else "not_held",
+            "result": ("held" if count > 0 else "not_held") if count is not None else None,
         }
-    
-    # Run parallel requests
-    result = SPARP(
-        requests_config,
-        inspect_response=inspect_response,
-        parse_response=parse_response,
-        concurrency=concurrency,
-        max_retries_by_soft_fail=3,
-        max_retries_by_timeout=3,
-        show_progress_bar=show_progress,
-        estimated_input_collection_size=len(isbns),
-        timeout_s=15.0,
-    ).main()
-    
-    # Build result mapping
-    results = {}
-    for item in result.success:
-        results[item["isbn"]] = item["result"]
-    
-    # Mark failed lookups as None
-    for req in result.failed:
-        # Extract ISBN from URL
-        url = req.get("url", "")
-        parsed_url = urllib.parse.urlparse(url)
-        query_params = urllib.parse.parse_qs(parsed_url.query)
-        isbn = query_params.get("query", [""])[0]
-        if isbn:
-            results[isbn] = None
-    
-    for req in result.max_retries_soft_fail_reached:
-        url = req.get("url", "")
-        parsed_url = urllib.parse.urlparse(url)
-        query_params = urllib.parse.parse_qs(parsed_url.query)
-        isbn = query_params.get("query", [""])[0]
-        if isbn:
-            results[isbn] = None
-    
-    for req in result.max_retries_timeout_reached:
-        url = req.get("url", "")
-        parsed_url = urllib.parse.urlparse(url)
-        query_params = urllib.parse.parse_qs(parsed_url.query)
-        isbn = query_params.get("query", [""])[0]
-        if isbn:
-            results[isbn] = None
-    
-    return results
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def check_isbn(self, isbn: str, retries: int = 3, debug: bool = False):
+        """Check whether any Belgian library holds this ISBN.
+
+        Returns:
+            Tuple: ("held", None) | ("not_held", None) | (None, error_msg)
+        """
+        url = self._build_url(isbn)
+
+        for attempt in range(retries):
+            try:
+                resp = self._session.get(url, timeout=self.timeout)
+                resp.raise_for_status()
+
+                count = self._parse_count(resp.text)
+                if count is None:
+                    return (None, "Failed to parse SRU response")
+
+                result = "held" if count > 0 else "not_held"
+                if debug:
+                    print(f"  ISBN {isbn}: {result.upper()} (numberOfRecords={count})")
+                return (result, None)
+
+            except requests.exceptions.RequestException as e:
+                if attempt < retries - 1:
+                    wait = random.uniform(2, 5)
+                    if debug:
+                        print(f"  ISBN {isbn}: Retry {attempt + 1}/{retries} after {wait:.1f}s ({e})")
+                    time.sleep(wait)
+                else:
+                    return (None, str(e))
+
+        return (None, "Max retries exceeded")
+
+    def batch_check_isbns(self, isbns: list, show_progress: bool = False) -> dict:
+        """Batch-check ISBNs concurrently via SPARP.
+
+        Returns:
+            Dict mapping ISBN -> "held" | "not_held" | None
+        """
+        if not isbns:
+            return {}
+
+        requests_config = [
+            {"method": "GET", "url": self._build_url(isbn)}
+            for isbn in isbns
+        ]
+
+        result = SPARP(
+            requests_config,
+            inspect_response=self._inspect_response,
+            parse_response=self._parse_response,
+            concurrency=self.concurrency,
+            max_retries_by_soft_fail=3,
+            max_retries_by_timeout=3,
+            show_progress_bar=show_progress,
+            estimated_input_collection_size=len(isbns),
+            timeout_s=self.timeout,
+        ).main()
+
+        results = {item["isbn"]: item["result"] for item in result.success}
+
+        for req in (*result.failed, *result.max_retries_soft_fail_reached, *result.max_retries_timeout_reached):
+            isbn = self._isbn_from_url(req.get("url", ""))
+            if isbn:
+                results[isbn] = None
+
+        return results
