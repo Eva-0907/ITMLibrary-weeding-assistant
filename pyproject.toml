@@ -7,7 +7,7 @@ name = "itm-weeding-assistant"
 version = "10.0.0"
 description = "Library weeding decision support system for ITG Antwerp tropical medicine collection"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.13"
 license = { text = "MIT" }
 authors = [
     { name = "ITG Antwerp", email = "lib@itg.be" }
@@ -27,11 +27,7 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business",
 ]
 
@@ -40,6 +36,7 @@ dependencies = [
     "requests>=2.28.0",
     "beautifulsoup4>=4.11.0",
     "urllib3>=1.26.0",
+    "sparp",
 ]
 
 [project.optional-dependencies]

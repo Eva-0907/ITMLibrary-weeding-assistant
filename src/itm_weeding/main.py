@@ -319,7 +319,7 @@ def main():
             }
         )
 
-        if (i + 1) % 500 == 0 or (i + 1) == len(records):
+        if (i + 1) % 100 == 0 or (i + 1) == len(records):
             elapsed = (datetime.now() - t0).total_seconds()
             rate = (i + 1) / elapsed if elapsed > 0 else 0
             print(

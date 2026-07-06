@@ -1,4 +1,8 @@
 .gitignore
+Makefile
+README_NEW.md
+RESTRUCTURE_SUMMARY.md
+STRUCTURE_GUIDE.md
 pyproject.toml
 input/Uitleen_2019-2026.csv
 input/Uitleen_collega's.csv
@@ -12,6 +16,7 @@ src/itm_weeding/core/__init__.py
 src/itm_weeding/core/helpers.py
 src/itm_weeding/core/parser.py
 src/itm_weeding/core/rules.py
+src/itm_weeding/core/rules_engine.py
 src/itm_weeding/report/__init__.py
 src/itm_weeding/report/builder.py
 src/itm_weeding/unicat/__init__.py
@@ -23,3 +28,4 @@ src/itm_weeding_assistant.egg-info/dependency_links.txt
 src/itm_weeding_assistant.egg-info/entry_points.txt
 src/itm_weeding_assistant.egg-info/requires.txt
 src/itm_weeding_assistant.egg-info/top_level.txt
+tests/__init__.py
