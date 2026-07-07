@@ -3,68 +3,47 @@
 import sys
 from datetime import datetime
 
-from itm_weeding.core import apply_rules, get_year, get_isbn, get_authors, gf
+from itm_weeding.core import get_year, get_isbn, get_authors, gf
+from itm_weeding.core.rules_engine import RulesEngine
 
 
 class WeedingPipeline:
-    """Runs UniCat lookup, applies weeding rules and post-processes results."""
+    """Applies weeding rules and post-processes results."""
 
-    def __init__(self, unicat, unicat_cache, no_cache=False):
-        self.unicat = unicat
-        self.unicat_cache = unicat_cache
-        self.no_cache = no_cache
+    def __init__(self):
+        pass
 
-    def fetch_unicat_data(self, process_records):
-        """Fetch and cache UniCat data for all ISBNs in the records to process."""
-        all_isbns = [get_isbn(rec) for rec in process_records]
-        unique_isbns = {isbn for isbn in all_isbns if isbn}
-
-        isbns_to_fetch = {
-            isbn
-            for isbn in unique_isbns
-            if self.no_cache or not self.unicat_cache.get(isbn)
-        }
-
-        if not isbns_to_fetch:
-            print("Pre-fetching UniCat data...")
-            print("  All ISBNs already cached")
-            return
-
-        print(f"Pre-fetching UniCat data for {len(isbns_to_fetch):,} ISBNs...")
-        # The lookup client (concurrent or sequential) decides the strategy.
-        batch_results = self.unicat.batch_check_isbns(
-            list(isbns_to_fetch),
-            show_progress=True,
+    def apply_rules(self, rec, all_records, borrowed, isbn_counts,
+                    older_edition=False, translation_duplicate=False,
+                    barnard_counts=None, unicat_result=None):
+        """Apply all weeding decision rules to a single record."""
+        engine = RulesEngine(all_records, borrowed, isbn_counts, barnard_counts)
+        return engine.get_weed_result(
+            rec,
+            unicat_result=unicat_result,
+            older_edition=older_edition,
+            translation_duplicate=translation_duplicate,
         )
 
-        fetched = sum(1 for v in batch_results.values() if v is not None)
-        print(f"  Fetched {fetched:,} results — storing in cache")
-        for isbn, result in batch_results.items():
-            self.unicat_cache.set(isbn, result)
+    def process_records(self, bib_data, circ_data, unicat_data):
+        """Apply weeding rules, run post-processing passes and print summary.
 
-    def process_records(
-        self,
-        process_records,
-        records,
-        borrowed,
-        indexer,
-    ):
-        """Apply weeding rules to every record. Returns (output_rows, counts)."""
+        Returns (output_rows, counts).
+        """
         t0 = datetime.now()
         output_rows = []
         counts = {"KEEP": 0, "WEED": 0, "REVIEW": 0, "SKIP": 0}
 
-        for i, rec in enumerate(process_records):
+        indexer = bib_data.indexer
+        records = bib_data.records
+        borrowed = circ_data.borrowed
+
+        for i, rec in enumerate(bib_data.process_records):
             isbn = get_isbn(rec)
 
-            # Always read from cache (populated during fetch_unicat_data)
-            unicat_result = None
-            if isbn:
-                cached = self.unicat_cache.get(isbn)
-                if cached:
-                    unicat_result = cached.get("result")
+            unicat_result = unicat_data.get(isbn) if isbn else None
 
-            result = apply_rules(
+            result = self.apply_rules(
                 rec,
                 records,
                 borrowed,
@@ -115,6 +94,14 @@ class WeedingPipeline:
                 sys.stdout.flush()
 
         self._report_unicat_stats(output_rows)
+
+        # Post-processing passes
+        self.upgrade_volume_sets(output_rows, indexer.volume_set_indices)
+        self.report_translation_duplicates(output_rows)
+
+        elapsed = (datetime.now() - t0).total_seconds()
+        self.print_summary(counts, len(bib_data.process_records), elapsed)
+
         return output_rows, counts
 
     @staticmethod
