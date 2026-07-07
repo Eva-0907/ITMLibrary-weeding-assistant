@@ -8,7 +8,7 @@ This project requires Python 3.13.x.
 .\run.bat setup
 ```
 
-## 3. Run the project
+## 2. Run the project
 
 ```bat
 .\run.bat run
@@ -26,7 +26,7 @@ To skip the UniCat cache and re-fetch all data:
 .\run.bat run --no-cache
 ```
 
-## 4. Useful commands
+## 3. Useful commands
 
 ```bat
 .\run.bat setup

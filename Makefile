@@ -1,4 +1,4 @@
-.PHONY: help setup dev-venv install run run-concurrent clean
+.PHONY: help setup dev-venv install run run-concurrent
 
 ifeq ($(OS),Windows_NT)
 VENV_PYTHON := .venv\\Scripts\\python.exe
@@ -23,7 +23,6 @@ help:
 	@echo "  make setup"
 	@echo "  make run"
 	@echo "  make run-concurrent"
-	@echo "  make clean"
 
 setup: dev-venv
 
@@ -45,11 +44,3 @@ run:
 
 run-concurrent:
 	@$(VENV_PYTHON) -m itm_weeding.main $(RUN_ARGS) --concurrent $(NO_CACHE_FLAG)
-
-clean:
-	@rm -rf build dist .pytest_cache .uvenv
-	@find . -type d -name '*.egg-info' -prune -exec rm -rf {} +
-	@find . -type d -name '__pycache__' -prune -exec rm -rf {} +
-	@find . -type f -name '*.pyc' -delete
-	@find . -type f -name '.DS_Store' -delete
-	@rm -f .coverage
