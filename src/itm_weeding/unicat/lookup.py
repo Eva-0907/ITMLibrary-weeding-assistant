@@ -13,11 +13,24 @@ _SRU_BASE = "http://www.unicat.be/sru"
 _SRU_NS = "http://www.loc.gov/zing/srw/"
 
 
-class UniCatLookup:
-    """Client for the UniCat SRU API (Belgian union catalogue)."""
+def _progress_bar(current: int, total: int, width: int = 20) -> str:
+    """Render a simple text progress bar."""
+    if total <= 0:
+        return f"[{'-' * width}] 0/{total} (0%)"
+    filled = max(0, min(width, int(round(current / total * width))))
+    bar = "#" * filled + "-" * (width - filled)
+    percent = int(round(current / total * 100))
+    return f"[{bar}] {current}/{total} ({percent}%)"
 
-    def __init__(self, concurrency: int = 20, timeout: float = 10.0):
-        self.concurrency = concurrency
+
+class UniCatLookupBase:
+    """Shared helpers for UniCat SRU lookups.
+
+    Subclasses implement :meth:`batch_check_isbns` with either a sequential or
+    a concurrent strategy. The single-ISBN :meth:`check_isbn` is shared.
+    """
+
+    def __init__(self, timeout: float = 10.0):
         self.timeout = timeout
         self._session = requests.Session()
 
@@ -52,23 +65,6 @@ class UniCatLookup:
             urllib.parse.urlparse(url).query
         ).get("query", [""])[0]
         return raw_query.removeprefix("isbn=")
-
-    @staticmethod
-    def _inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
-        if response.status == 200:
-            return ResponseState.SUCCESS
-        if response.status in (429, 502, 503):
-            return ResponseState.SOFT_FAIL
-        return ResponseState.HARD_FAIL
-
-    async def _parse_response(self, req_config: dict, response: aiohttp.ClientResponse) -> dict:
-        text = await response.text()
-        count = self._parse_count(text)
-        isbn = self._isbn_from_url(req_config["url"])
-        return {
-            "isbn": isbn,
-            "result": ("held" if count > 0 else "not_held") if count is not None else None,
-        }
 
     # ------------------------------------------------------------------
     # Public API
@@ -106,6 +102,60 @@ class UniCatLookup:
                     return (None, str(e))
 
         return (None, "Max retries exceeded")
+
+    def batch_check_isbns(self, isbns: list, show_progress: bool = False) -> dict:
+        """Check many ISBNs. Returns dict ISBN -> "held" | "not_held" | None."""
+        raise NotImplementedError
+
+
+class UniCatLookupSequential(UniCatLookupBase):
+    """Checks ISBNs one at a time (no concurrency)."""
+
+    def batch_check_isbns(self, isbns: list, show_progress: bool = False) -> dict:
+        """Check ISBNs sequentially, one request at a time.
+
+        Returns:
+            Dict mapping ISBN -> "held" | "not_held" | None
+        """
+        if not isbns:
+            return {}
+
+        results = {}
+        total = len(isbns)
+        for index, isbn in enumerate(isbns, start=1):
+            result, _ = self.check_isbn(isbn, retries=2)
+            results[isbn] = result
+            if show_progress:
+                print(f"\r  {_progress_bar(index, total)}", end="", flush=True)
+        if show_progress:
+            print()
+
+        return results
+
+
+class UniCatLookupConcurrent(UniCatLookupBase):
+    """Checks ISBNs concurrently via SPARP."""
+
+    def __init__(self, concurrency: int = 20, timeout: float = 10.0):
+        super().__init__(timeout=timeout)
+        self.concurrency = concurrency
+
+    @staticmethod
+    def _inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
+        if response.status == 200:
+            return ResponseState.SUCCESS
+        if response.status in (429, 502, 503):
+            return ResponseState.SOFT_FAIL
+        return ResponseState.HARD_FAIL
+
+    async def _parse_response(self, req_config: dict, response: aiohttp.ClientResponse) -> dict:
+        text = await response.text()
+        count = self._parse_count(text)
+        isbn = self._isbn_from_url(req_config["url"])
+        return {
+            "isbn": isbn,
+            "result": ("held" if count > 0 else "not_held") if count is not None else None,
+        }
 
     def batch_check_isbns(self, isbns: list, show_progress: bool = False) -> dict:
         """Batch-check ISBNs concurrently via SPARP.

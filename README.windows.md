@@ -20,10 +20,17 @@ To run the concurrent mode:
 .\run.bat run-concurrent
 ```
 
+To skip the UniCat cache and re-fetch all data:
+
+```bat
+.\run.bat run --no-cache
+```
+
 ## 4. Useful commands
 
 ```bat
 .\run.bat setup
 .\run.bat run
+.\run.bat run --no-cache
 .\run.bat run-concurrent
 ```

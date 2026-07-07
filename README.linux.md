@@ -29,11 +29,18 @@ To run the concurrent mode:
 make run-concurrent
 ```
 
+To skip the UniCat cache and re-fetch all data:
+
+```bash
+make run NO_CACHE=1
+```
+
 ## 4. Useful commands
 
 ```bash
 make setup
 make run
+make run NO_CACHE=1
 make run-concurrent
 make clean
 ```

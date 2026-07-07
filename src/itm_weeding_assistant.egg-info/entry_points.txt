@@ -1,0 +1,2 @@
+[console_scripts]
+itm-weeding = itm_weeding.main:main
