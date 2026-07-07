@@ -31,7 +31,7 @@ from itm_weeding.config.rules_data import (
 class RulesEngine:
     """Weeding decision rules engine."""
     
-    def __init__(self, rec, all_records, borrowed_bibs, isbn_counts, barnard_counts=None):
+    def __init__(self, rec, all_records, borrowed_bibs, isbn_counts, barnard_counts=None, unicat_result=None):
         """Initialize rules engine with record and context data.
         
         Args:
@@ -40,12 +40,14 @@ class RulesEngine:
             borrowed_bibs: Set of borrowed bibs
             isbn_counts: Dict mapping ISBN to count
             barnard_counts: Dict mapping Barnard class to count
+            unicat_result: UniCat availability result for this ISBN
         """
         self.rec = rec
         self.all_records = all_records
         self.borrowed_bibs = borrowed_bibs
         self.isbn_counts = isbn_counts
         self.barnard_counts = barnard_counts or {}
+        self.unicat_result = unicat_result
         
         # Extract record fields
         self.year = get_year(rec)
@@ -380,6 +382,16 @@ class RulesEngine:
                 "review",
             )
             self.hard_rule = "REVIEW"
+
+    def _apply_unicat_review_rule(self):
+        """Downgrade WEED decisions to REVIEW when UniCat says the item is not held."""
+        if self.unicat_result == "not_held" and self.hard_rule == "WEED":
+            self._flag(
+                "UniCat availability",
+                "UniCat shows this ISBN is not held in Belgian libraries — review before weeding",
+                "review",
+            )
+            self.hard_rule = "REVIEW"
     
     def apply(self, older_edition=False, translation_duplicate=False):
         """Apply all weeding rules.
@@ -431,6 +443,7 @@ class RulesEngine:
         
         # Apply weed rules
         self._apply_weed_rules()
+        self._apply_unicat_review_rule()
         
         # WHO/FAO final check
         if is_who_fao and (self.keep_override or self.had_keep_reason) and not translation_duplicate:
@@ -457,9 +470,8 @@ class RulesEngine:
             "reasoning": reasoning,
         }
 
-
 def apply_rules(rec, all_records, borrowed_bibs, isbn_counts, older_edition=False, 
-                translation_duplicate=False, barnard_counts=None):
+                translation_duplicate=False, barnard_counts=None, unicat_result=None):
     """Apply all weeding decision rules to a record (convenience function).
     
     Args:
@@ -474,5 +486,12 @@ def apply_rules(rec, all_records, borrowed_bibs, isbn_counts, older_edition=Fals
     Returns:
         dict: recommendation (KEEP/WEED/REVIEW/SKIP), reasoning, flags, etc.
     """
-    engine = RulesEngine(rec, all_records, borrowed_bibs, isbn_counts, barnard_counts)
+    engine = RulesEngine(
+        rec,
+        all_records,
+        borrowed_bibs,
+        isbn_counts,
+        barnard_counts,
+        unicat_result=unicat_result,
+    )
     return engine.apply(older_edition=older_edition, translation_duplicate=translation_duplicate)

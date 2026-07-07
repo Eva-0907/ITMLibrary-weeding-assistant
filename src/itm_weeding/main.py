@@ -40,13 +40,13 @@ def main():
         print(f"UniCat cache loaded: {len(unicat_cache)} entries")
 
     # Load input data
-    records, primary_count = DataLoader.load_records(args.ris)
+    records = DataLoader.load_records(args.ris)
     borrowed = DataLoader.load_borrowed(args.students, args.staff)
 
     # Pre-compute grouping indices
     indexer = GroupIndexer(records)
 
-    process_records = records[:primary_count]
+    process_records = records
     print(f"\nProcessing {len(process_records):,} records...")
 
     pipeline = WeedingPipeline(unicat, unicat_cache, no_cache=args.no_cache)

@@ -55,18 +55,6 @@ class WeedingPipeline:
         counts = {"KEEP": 0, "WEED": 0, "REVIEW": 0, "SKIP": 0}
 
         for i, rec in enumerate(process_records):
-            result = apply_rules(
-                rec,
-                records,
-                borrowed,
-                indexer.isbn_counts,
-                older_edition=(i in indexer.older_edition_indices),
-                translation_duplicate=(i in indexer.translation_weed_indices),
-                barnard_counts=indexer.barnard_counts,
-            )
-            rec_val = result["recommendation"]
-            counts[rec_val] = counts.get(rec_val, 0) + 1
-
             isbn = get_isbn(rec)
 
             # Always read from cache (populated during fetch_unicat_data)
@@ -75,6 +63,19 @@ class WeedingPipeline:
                 cached = self.unicat_cache.get(isbn)
                 if cached:
                     unicat_result = cached.get("result")
+
+            result = apply_rules(
+                rec,
+                records,
+                borrowed,
+                indexer.isbn_counts,
+                older_edition=(i in indexer.older_edition_indices),
+                translation_duplicate=(i in indexer.translation_weed_indices),
+                barnard_counts=indexer.barnard_counts,
+                unicat_result=unicat_result,
+            )
+            rec_val = result["recommendation"]
+            counts[rec_val] = counts.get(rec_val, 0) + 1
 
             output_rows.append(
                 {

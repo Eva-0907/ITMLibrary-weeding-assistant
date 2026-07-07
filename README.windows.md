@@ -33,4 +33,5 @@ To skip the UniCat cache and re-fetch all data:
 .\run.bat run
 .\run.bat run --no-cache
 .\run.bat run-concurrent
+.\run.bat run-concurrent --no-cache
 ```
