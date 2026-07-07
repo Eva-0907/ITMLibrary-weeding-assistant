@@ -14,9 +14,10 @@ _SRU_NS = "http://www.loc.gov/zing/srw/"
 
 
 class UniCatLookup:
-    """Client for the UniCat SRU API (Belgian union catalogue)."""
+    """Query the UniCat SRU API to check whether an ISBN is held by Belgian libraries."""
 
     def __init__(self, concurrency: int = 20, timeout: float = 10.0):
+        """Initialize the client with request concurrency and timeout settings."""
         self.concurrency = concurrency
         self.timeout = timeout
         self._session = requests.Session()
@@ -26,6 +27,7 @@ class UniCatLookup:
     # ------------------------------------------------------------------
 
     def _build_url(self, isbn: str) -> str:
+        """Build the SRU request URL for a single ISBN."""
         params = {
             "version": "1.1",
             "operation": "searchRetrieve",
@@ -36,7 +38,7 @@ class UniCatLookup:
 
     @staticmethod
     def _parse_count(xml_text: str):
-        """Return numberOfRecords from an SRU XML response, or None on error."""
+        """Extract the numberOfRecords value from an SRU XML response."""
         try:
             root = ET.fromstring(xml_text)
             el = root.find(f"{{{_SRU_NS}}}numberOfRecords")
@@ -48,6 +50,7 @@ class UniCatLookup:
 
     @staticmethod
     def _isbn_from_url(url: str) -> str:
+        """Extract the ISBN from a request URL query string."""
         raw_query = urllib.parse.parse_qs(
             urllib.parse.urlparse(url).query
         ).get("query", [""])[0]
@@ -55,6 +58,7 @@ class UniCatLookup:
 
     @staticmethod
     def _inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
+        """Classify an HTTP response as success, soft fail, or hard fail."""
         if response.status == 200:
             return ResponseState.SUCCESS
         if response.status in (429, 502, 503):
@@ -62,6 +66,7 @@ class UniCatLookup:
         return ResponseState.HARD_FAIL
 
     async def _parse_response(self, req_config: dict, response: aiohttp.ClientResponse) -> dict:
+        """Parse the UniCat response body into a normalized result dictionary."""
         text = await response.text()
         count = self._parse_count(text)
         isbn = self._isbn_from_url(req_config["url"])
@@ -75,10 +80,10 @@ class UniCatLookup:
     # ------------------------------------------------------------------
 
     def check_isbn(self, isbn: str, retries: int = 3, debug: bool = False):
-        """Check whether any Belgian library holds this ISBN.
+        """Check whether a single ISBN is held by any Belgian library.
 
-        Returns:
-            Tuple: ("held", None) | ("not_held", None) | (None, error_msg)
+        The method performs a direct request to UniCat, retries transient
+        failures, and returns a simple held/not-held result or an error string.
         """
         url = self._build_url(isbn)
 
@@ -108,10 +113,10 @@ class UniCatLookup:
         return (None, "Max retries exceeded")
 
     def batch_check_isbns(self, isbns: list, show_progress: bool = False) -> dict:
-        """Batch-check ISBNs concurrently via SPARP.
+        """Check many ISBNs in parallel and return a dictionary of results.
 
-        Returns:
-            Dict mapping ISBN -> "held" | "not_held" | None
+        This uses the SPARP library to issue requests concurrently, which is much
+        faster for large batches but more complex than the single-ISBN flow.
         """
         if not isbns:
             return {}

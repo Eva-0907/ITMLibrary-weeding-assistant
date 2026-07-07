@@ -9,7 +9,13 @@ from itm_weeding.config.rules_data import HISTORICAL_TITLES, OUTBREAK_TIMELINE
 
 
 def gf(rec, *tags):
-    """Get first non-empty value from record by tag priority."""
+    """Return the first non-empty field value for the given RIS tags.
+
+    The function checks the supplied tags in order and returns the first value
+    that exists in the record. This is used throughout the project to read
+    fields such as title, author, year, and location without repeatedly
+    handling list-vs-string record values.
+    """
     for t in tags:
         v = rec.get(t)
         if v:
@@ -18,7 +24,12 @@ def gf(rec, *tags):
 
 
 def barnard_label(code):
-    """Format Barnard code with human-readable label."""
+    """Format a Barnard code into a readable label.
+
+    If the full code is known, the function returns it with the matching
+    descriptive label. If the code is only partially known, it falls back to
+    the longest prefix that is available in the configuration dataset.
+    """
     if not code:
         return ""
     c = code.strip().upper()
@@ -32,7 +43,12 @@ def barnard_label(code):
 
 
 def base_barnard(code):
-    """Normalise Barnard code to base class (first 2-3 chars)."""
+    """Return the base Barnard class for grouping and scarcity analysis.
+
+    The function strips whitespace, normalizes the code to uppercase, and
+    keeps the first three characters so related records can be grouped by a
+    shared classification prefix.
+    """
     if not code:
         return ""
     c = code.strip().upper()
@@ -40,7 +56,11 @@ def base_barnard(code):
 
 
 def get_retention_flag(code):
-    """Get retention flag (H1-H3) from Barnard classification."""
+    """Resolve the retention flag associated with a Barnard classification.
+
+    The function looks up the Barnard code or its known prefix in the retention
+    mapping and returns the corresponding H1/H2/H3 flag when available.
+    """
     if not code:
         return None
     c = code.strip().upper()
@@ -54,19 +74,32 @@ def get_retention_flag(code):
 
 
 def get_year(rec):
-    """Extract publication year from record."""
+    """Extract the publication year from a RIS record.
+
+    The function scans the common year fields in order and returns the first
+    four-digit year it finds. If no year is present, it returns None.
+    """
     raw = gf(rec, "Y1", "PY", "DA")
     m = re.search(r"\d{4}", raw)
     return int(m.group()) if m else None
 
 
 def get_isbn(rec):
-    """Extract ISBN from record (numeric digits only)."""
+    """Extract a normalized ISBN value from a RIS record.
+
+    Only numeric digits and the letter X are preserved so that ISBNs can be
+    compared consistently across records.
+    """
     return re.sub(r"[^0-9X]", "", gf(rec, "SN"), flags=re.IGNORECASE)
 
 
 def get_authors(rec):
-    """Format authors as semicolon-separated list."""
+    """Format authors for display in the report.
+
+    The function collects author values from the A1 and A2 tags and returns a
+    short, human-readable string. If there are more than two authors, it trims
+    the list to the first two and appends "et al.".
+    """
     all_authors = []
     for tag in ("A1", "A2"):
         v = rec.get(tag, [])
@@ -79,7 +112,11 @@ def get_authors(rec):
 
 
 def make_circ_key(barnard, call_num, year):
-    """Create a unique key for circulation tracking (barnard|call_num|year)."""
+    """Build a normalized circulation identifier for a bibliographic item.
+
+    The key combines Barnard class, call number, and year so that circulation
+    records can be matched against bibliographic records reliably.
+    """
     b = (barnard or "").strip().upper()
     c = re.sub(r"/.*$", "", (call_num or "").strip())
     c = re.sub(r"M$", "", c, flags=re.IGNORECASE).strip()
@@ -88,7 +125,12 @@ def make_circ_key(barnard, call_num, year):
 
 
 def get_circ_key(rec):
-    """Extract circulation key from record."""
+    """Create the circulation lookup key for a single RIS record.
+
+    The function derives the Barnard class, normalized call number, and year
+    from the record and uses them to build the same key structure used in the
+    circulation data import.
+    """
     b = gf(rec, "U4").strip().upper()
     c = re.sub(r"M$", "", gf(rec, "U5").strip(), flags=re.IGNORECASE).strip()
     raw = gf(rec, "Y1", "PY", "DA")
@@ -98,7 +140,11 @@ def get_circ_key(rec):
 
 
 def unicat_url(rec):
-    """Generate UniCat search URL for a record."""
+    """Generate a UniCat search URL for a bibliographic record.
+
+    If an ISBN is available, the URL searches by ISBN; otherwise the function
+    falls back to a short title/author search string.
+    """
     isbn = get_isbn(rec)
     if isbn:
         return f"https://www.unicat.be/uniCat?func=search&query={urllib.parse.quote(isbn)}"
@@ -113,10 +159,10 @@ def unicat_url(rec):
 
 
 def is_historical_title(title, author=""):
-    """Check if record matches a known landmark work in medical literature.
-    
-    Title fragment must appear in cleaned title and cover ≥60% of its words.
-    If author fragment is set, at least one author token must appear.
+    """Return True when a title appears to be a historically significant landmark work.
+
+    The function compares the cleaned title and author against a curated list of
+    historical titles and uses coverage heuristics to prevent weak matches.
     """
     t = re.sub(r"[^a-z0-9 ]", " ", title.lower())
     t = re.sub(r"\s+", " ", t).strip()
@@ -143,10 +189,11 @@ def is_historical_title(title, author=""):
 
 
 def matches_outbreak(title, abstract, keywords, barnard):
-    """Check if record matches an outbreak timeline event.
-    
-    Keywords must appear in title + abstract (not keywords field).
-    Barnard classification must start with one of the event's prefixes.
+    """Find outbreak-related events that match a record's content.
+
+    The function searches the title and abstract for outbreak keywords and checks
+    that the Barnard class falls within the expected prefix range for that
+    event. Matching event names are returned as a list.
     """
     raw_hay = (title + " " + abstract).lower()
     # Strip accents so "fièvre" matches "fievre", "doença" matches "doenca"

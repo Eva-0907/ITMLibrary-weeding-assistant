@@ -29,17 +29,13 @@ from itm_weeding.config.rules_data import (
 
 
 class RulesEngine:
-    """Weeding decision rules engine."""
+    """Apply the library weeding decision rules to a single bibliographic record."""
     
     def __init__(self, rec, all_records, borrowed_bibs, isbn_counts, barnard_counts=None):
-        """Initialize rules engine with record and context data.
-        
-        Args:
-            rec: RIS record dict
-            all_records: All records in collection
-            borrowed_bibs: Set of borrowed bibs
-            isbn_counts: Dict mapping ISBN to count
-            barnard_counts: Dict mapping Barnard class to count
+        """Initialize the rules engine with the current record and shared context.
+
+        The context data lets the engine evaluate a record relative to the rest
+        of the collection, including circulation history and duplicate counts.
         """
         self.rec = rec
         self.all_records = all_records
@@ -74,18 +70,18 @@ class RulesEngine:
         self.had_keep_reason = False
     
     def _flag(self, criterion, detail, severity):
-        """Add a flag to the decision."""
+        """Record an explanation or evidence item for the final decision."""
         self.flags.append({"criterion": criterion, "detail": detail, "severity": severity})
     
     def _check_e_only(self):
-        """Check if record is e-only."""
+        """Return True when the record is an e-only item and should be skipped."""
         if "e-only" in self.e_status.lower() or "-e" in self.doc_type.lower():
             self._flag("E-only", "No physical copy", "keep")
             return True
         return False
     
     def _apply_retention_flags(self):
-        """Apply rules based on retention flags."""
+        """Apply any retention-flag based keep rules to the current record."""
         if self.retention == "H1":
             self._flag(
                 "Retention flag",
@@ -96,7 +92,7 @@ class RulesEngine:
             self.had_keep_reason = True
     
     def _apply_document_type_rules(self):
-        """Apply rules based on document type."""
+        """Apply rules that depend on the document type, such as dissertations or proceedings."""
         # Dissertation
         if (
             self.rec_type in ("THES", "THESIS", "DISS")
@@ -150,7 +146,7 @@ class RulesEngine:
             self.had_keep_reason = True
     
     def _apply_regional_rules(self):
-        """Apply rules based on regional/institutional affiliations."""
+        """Apply rules related to Congo, Africa, and institutional relevance."""
         # Congo / Belgium
         hay = (self.title + " " + self.abstract + " " + self.publisher + " " + self.keywords).lower()
         if any(t in hay for t in CONGO_TERMS):
@@ -194,7 +190,7 @@ class RulesEngine:
             self.had_keep_reason = True
     
     def _apply_historical_rules(self):
-        """Apply rules based on historical significance."""
+        """Apply historical and outbreak-related keep rules to the record."""
         # Historical title list
         author_str = get_authors(self.rec)
         if is_historical_title(self.title, author_str):
@@ -215,7 +211,7 @@ class RulesEngine:
             self.had_keep_reason = True
     
     def _apply_circulation_rules(self):
-        """Apply rules based on circulation and location."""
+        """Apply rules based on circulation history and special storage locations."""
         # Circulation history
         if self.borrowed_bibs and get_circ_key(self.rec) in self.borrowed_bibs:
             self._flag(
@@ -239,7 +235,7 @@ class RulesEngine:
             self.had_keep_reason = True
     
     def _apply_publisher_rules(self):
-        """Apply rules based on publisher affiliation."""
+        """Apply keep rules for specialist publishers and institutional affiliations."""
         pub_lower = gf(self.rec, "PB").lower()
         a3_vals = self.rec.get("A3", [])
         a3_vals = [a3_vals] if isinstance(a3_vals, str) else a3_vals
@@ -256,7 +252,7 @@ class RulesEngine:
             self.had_keep_reason = True
     
     def _apply_barnard_flag(self):
-        """Add informational Barnard class flag."""
+        """Add an informational Barnard-class flag to the decision output."""
         if self.barnard:
             self._flag(
                 "Barnard",
@@ -265,7 +261,7 @@ class RulesEngine:
             )
     
     def _check_who_fao(self):
-        """Check if WHO/FAO publication."""
+        """Return True when the record appears to be a WHO or FAO publication."""
         _pub_parts = [self.publisher]
         for tag in ("A1", "A2", "A3", "A4", "ED", "SE", "PB", "T3"):
             v = self.rec.get(tag, "")
@@ -286,7 +282,7 @@ class RulesEngine:
         return is_who_fao
     
     def _apply_duplicate_rules(self, is_translation_duplicate, is_older_edition):
-        """Apply rules for duplicates, translations, and editions."""
+        """Apply duplicate, translation, and older-edition weed rules."""
         # Translation duplicate
         if is_translation_duplicate:
             self.keep_override = False
@@ -309,7 +305,7 @@ class RulesEngine:
             self.hard_rule = "WEED"
     
     def _apply_scarcity_protection(self):
-        """Apply Barnard class scarcity protection."""
+        """Protect scarce Barnard classes from being weeded automatically."""
         if not self.keep_override and self.barnard_counts:
             bc = base_barnard(self.barnard) if self.barnard else ""
             class_count = self.barnard_counts.get(bc, 0) if bc else 0
@@ -324,7 +320,7 @@ class RulesEngine:
                 self.had_keep_reason = True
     
     def _apply_weed_rules(self):
-        """Apply weeding rules (only if not kept)."""
+        """Apply the default weed rules when the record has not already been kept."""
         if self.keep_override:
             return
         
@@ -382,14 +378,11 @@ class RulesEngine:
             self.hard_rule = "REVIEW"
     
     def apply(self, older_edition=False, translation_duplicate=False):
-        """Apply all weeding rules.
-        
-        Args:
-            older_edition: Whether this is an older edition
-            translation_duplicate: Whether this is a translation duplicate
-        
-        Returns:
-            dict: Weeding decision with recommendation, flags, etc.
+        """Evaluate the record and return a weeding recommendation.
+
+        The method runs the full pipeline of keep, review, and weed checks and
+        returns a structured decision including the final recommendation,
+        triggered flags, and human-readable reasoning.
         """
         # Check skip conditions first
         if self._check_e_only():
@@ -458,21 +451,12 @@ class RulesEngine:
         }
 
 
-def apply_rules(rec, all_records, borrowed_bibs, isbn_counts, older_edition=False, 
+def apply_rules(rec, all_records, borrowed_bibs, isbn_counts, older_edition=False,
                 translation_duplicate=False, barnard_counts=None):
-    """Apply all weeding decision rules to a record (convenience function).
-    
-    Args:
-        rec: RIS record dict
-        all_records: All records in collection
-        borrowed_bibs: Set of borrowed bibs
-        isbn_counts: Dict mapping ISBN to count
-        older_edition: Whether this is an older edition
-        translation_duplicate: Whether this is a translation duplicate
-        barnard_counts: Dict mapping Barnard class to count
-    
-    Returns:
-        dict: recommendation (KEEP/WEED/REVIEW/SKIP), reasoning, flags, etc.
+    """Convenience wrapper that evaluates a single record with the rules engine.
+
+    The function creates the engine, applies the full rules pipeline, and
+    returns the structured recommendation for the caller.
     """
     engine = RulesEngine(rec, all_records, borrowed_bibs, isbn_counts, barnard_counts)
     return engine.apply(older_edition=older_edition, translation_duplicate=translation_duplicate)

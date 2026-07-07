@@ -8,10 +8,10 @@ from itm_weeding.core.helpers import barnard_label, gf
 
 
 class ExcelReporter:
-    """Generate Excel reports for weeding analysis results."""
+    """Generate the Excel workbook used for the final weeding report."""
     
     def __init__(self):
-        """Initialize report configuration."""
+        """Initialize the worksheet layout, formatting, and column configuration."""
         self.headers = [
             "Title", "Author", "Year", "Type", "Bib#", "ISBN",
             "Barnard", "Retention Flag", "Call Number", "Language", "Location",
@@ -24,14 +24,7 @@ class ExcelReporter:
         self.header_fill_dept = PatternFill("solid", fgColor="4A235A")
     
     def _format_row(self, row):
-        """Format a single row for export.
-        
-        Args:
-            row: Row data dict
-        
-        Returns:
-            Tuple: (recommendation, [column_values])
-        """
+        """Convert one processed record into the values written to the Excel sheet."""
         result = row["result"]
         flags = result["flags"]
         rec = row["rec"]
@@ -72,13 +65,7 @@ class ExcelReporter:
         ]
     
     def _write_sheet(self, ws, sheet_rows, hdr_fill):
-        """Write data to worksheet.
-        
-        Args:
-            ws: Worksheet object
-            sheet_rows: Rows to write
-            hdr_fill: Header fill style
-        """
+        """Write a set of processed rows to a worksheet with formatting applied."""
         # Header
         for ci, h in enumerate(self.headers, 1):
             cell = ws.cell(row=1, column=ci, value=h)
@@ -102,12 +89,7 @@ class ExcelReporter:
             ws.auto_filter.ref = ws.dimensions
     
     def export(self, rows, out_path):
-        """Export weeding report to Excel file with two sheets.
-        
-        Args:
-            rows: List of row data dicts
-            out_path: Output Excel file path
-        """
+        """Export the processed rows to an Excel workbook with library and department sheets."""
         # Split rows into library vs department
         lib_rows = [r for r in rows if "dep-a" not in r["location"].lower()]
         dept_rows = [r for r in rows if "dep-a" in r["location"].lower()]
@@ -128,11 +110,6 @@ class ExcelReporter:
 
 
 def export_xlsx(rows, out_path):
-    """Export weeding report to Excel file (convenience function).
-    
-    Args:
-        rows: List of row data dicts
-        out_path: Output Excel file path
-    """
+    """Convenience wrapper for exporting processed rows to an Excel workbook."""
     reporter = ExcelReporter()
     reporter.export(rows, out_path)
