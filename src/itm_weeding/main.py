@@ -93,6 +93,18 @@ def read_ris_file(path):
     return text
 
 
+def render_progress_bar(current, total, width=20):
+    """Render a simple text progress bar."""
+    if total <= 0:
+        return f"[{'' * width}] 0/{total} (0%)"
+
+    filled = int(round(current / total * width))
+    filled = max(0, min(width, filled))
+    bar = "#" * filled + "-" * (width - filled)
+    percent = int(round(current / total * 100))
+    return f"[{bar}] {current}/{total} ({percent}%)"
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -266,9 +278,12 @@ def main():
             )
         else:
             batch_results = {}
-            for isbn in isbns_to_fetch:
+            total = len(isbns_to_fetch)
+            for index, isbn in enumerate(isbns_to_fetch, start=1):
                 result, _ = unicat.check_isbn(isbn, retries=2)
                 batch_results[isbn] = result
+                print(f"\r  {render_progress_bar(index, total)}", end="", flush=True)
+            print()
 
         fetched = sum(1 for v in batch_results.values() if v is not None)
         print(f"  Fetched {fetched:,} results — storing in cache")

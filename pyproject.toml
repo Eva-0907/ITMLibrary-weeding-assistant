@@ -7,7 +7,7 @@ name = "itm-weeding-assistant"
 version = "10.0.0"
 description = "Library weeding decision support system for ITG Antwerp tropical medicine collection"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 license = { text = "MIT" }
 authors = [
     { name = "ITG Antwerp", email = "lib@itg.be" }
