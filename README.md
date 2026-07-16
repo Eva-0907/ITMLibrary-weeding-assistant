@@ -42,7 +42,7 @@ Common criteria (examples):
 
 Primary inputs live in the `input/` folder and are used by the `weed/` scripts.
 
-- `books_1950-1990_book_infile.txt`: bibliographic inventory extract used for metadata like ISBN, title, author, year.
+- `books_1950-1990_book_infile.txt`: bibliographic inventory extract used for metadata like ISBN, title, author, year in RIS format.
 - `Uitleen_2019-2026.csv`: circulation history (loan events) used to calculate total loans and last-loan date.
 - `Uitleen_collega's.csv`: colleague loans and special circulation patterns (may be excluded from public-use counts if desired).
 
@@ -73,21 +73,9 @@ python weed/weed9.py --help
 
 Typical outputs (CSV or Excel) include:
 
-- `candidates_review.csv` — items with mid-range scores needing curator review
-- `candidates_weed.csv` — items that meet the automatic weed threshold (still require sign-off)
+- `weeding_report.xlsx` — full report of all of the records with a reasoning, result of UniCat lookup and category ("KEEP", "WEED", "REVIEW", "SKIP")
 - `audit_log.csv` — record of input files, parameters, and timestamp for reproducibility
 
-Interpretation tips:
-- Always inspect a sample of records before bulk actions; look at condition and content relevance that scores don't capture.
-- Cross-check online availability for items flagged as weed candidates (remove only when a reliable alternative exists).
-
-## Recommended workflow
-
-1. Back up current `input/` files and export a snapshot of the catalogue.
-2. Run `python weed/build_final.py` to generate candidate lists.
-3. Curator reviews `candidates_review.csv` in order of increasing retention score.
-4. For `candidates_weed.csv`, perform a small pilot withdrawal (e.g., 50 items) and verify no unforeseen negative consequences.
-5. After approval, archive withdrawn records and update the catalogue system.
 
 ## Validation and auditing
 
