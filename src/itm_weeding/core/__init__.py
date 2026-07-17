@@ -1,7 +1,7 @@
 """Core weeding logic and parsing utilities."""
 
 from .parser import parse_ris, load_circulation
-from .rules import apply_rules
+from .rules import RulesEngine
 from .helpers import (
     gf,
     get_isbn,
@@ -20,7 +20,7 @@ from .helpers import (
 __all__ = [
     "parse_ris",
     "load_circulation",
-    "apply_rules",
+    "RulesEngine",
     "gf",
     "get_isbn",
     "get_year",

@@ -1,37 +1,32 @@
 @echo off
 
 if /i "%~1"=="setup" (
-    if exist .venv\Scripts\python.exe goto :install
+    echo Creating virtual environment and installing dependencies...
 
-    echo Creating virtual environment...
-    py -3.13 -m venv .venv
-    if not exist .venv\Scripts\python.exe (
-        py -3 -m venv .venv
+    if not exist .uvenv\Scripts\python.exe (
+        python -m venv .uvenv
     )
-    if not exist .venv\Scripts\python.exe (
-        python -m venv .venv
-    )
-
-    if not exist .venv\Scripts\python.exe (
-        echo Error: virtual environment Python was not created successfully.
+    if not exist .uvenv\Scripts\python.exe (
+        echo Error: bootstrap virtual environment was not created successfully.
         exit /b 1
     )
 
-    :install
-    echo Syncing dependencies...
-    .venv\Scripts\python.exe -m pip install --upgrade pip
-    .venv\Scripts\python.exe -m pip install uv
-    .venv\Scripts\python.exe -m uv sync --python 3.13
+    .uvenv\Scripts\python.exe -m pip install --index-url "https://pypi.org/simple/" --upgrade pip uv
+    .uvenv\Scripts\uv.exe sync --python 3.13 --index-url "https://pypi.org/simple/" --index-strategy first-index
     goto :eof
 )
 
 if /i "%~1"=="run" (
-    .venv\Scripts\python.exe -m itm_weeding.main input\books_1950-1990_book_infile.txt --students input\Uitleen_collega's.csv --staff input\Uitleen_2019-2026.csv
+    if /i "%~2"=="--no-cache" (
+        .venv\Scripts\python.exe -m itm_weeding.main input\books_1950-1990_book_infile.txt --students input\Uitleen_collega's.csv --staff input\Uitleen_2019-2026.csv --no-cache
+    ) else (
+        .venv\Scripts\python.exe -m itm_weeding.main input\books_1950-1990_book_infile.txt --students input\Uitleen_collega's.csv --staff input\Uitleen_2019-2026.csv
+    )
     goto :eof
 )
 
 if /i "%~1"=="run-concurrent" (
-    .venv\Scripts\python.exe -m itm_weeding.main input\books_1950-1990_book_infile.txt --students input\Uitleen_collega's.csv --staff input\Uitleen_2019-2026.csv --concurrent
+    .venv\Scripts\python.exe -m itm_weeding.main input\books_1950-1990_book_infile.txt --students input\Uitleen_collega's.csv --staff input\Uitleen_2019-2026.csv --concurrent %2 %3 %4 %5 %6 %7 %8 %9
     goto :eof
 )
 

@@ -7,5 +7,7 @@
 .env
 .venv/
 venv/
+.uvenv
 .DS_Store
 Thumbs.db
+src/itm_weeding_assistant.egg-info
