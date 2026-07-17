@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 import requests
 import aiohttp
-from sparp.sparp import SPARP, ResponseState
+from sparp import SPARP, ResponseState
 
 _SRU_BASE = "http://www.unicat.be/sru"
 _SRU_NS = "http://www.loc.gov/zing/srw/"
@@ -174,20 +174,26 @@ class UniCatLookupConcurrent(UniCatLookupBase):
         ]
 
         result = SPARP(
-            requests_config,
             inspect_response=self._inspect_response,
-            parse_response=self._parse_response,
+            parse_response_fn=self._parse_response,
             concurrency=self.concurrency,
-            max_retries_by_soft_fail=3,
-            max_retries_by_timeout=3,
+            max_retries_when_soft_fail=3,
+            max_retries_on_timeout=3,
             show_progress_bar=show_progress,
-            estimated_input_collection_size=len(isbns),
             timeout_s=self.timeout,
-        ).main()
+        ).run(
+            requests_config,
+            estimated_input_collection_size=len(isbns),
+        )
 
         results = {item["isbn"]: item["result"] for item in result.success}
 
-        for req in (*result.failed, *result.max_retries_soft_fail_reached, *result.max_retries_timeout_reached):
+        for item in result.failed:
+            isbn = item.get("isbn")
+            if isbn:
+                results[isbn] = None
+
+        for req in (*result.max_retries_soft_fail_reached, *result.max_retries_timeout_reached):
             isbn = self._isbn_from_url(req.get("url", ""))
             if isbn:
                 results[isbn] = None
