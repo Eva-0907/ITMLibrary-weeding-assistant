@@ -10,3 +10,5 @@ venv/
 .uvenv
 .DS_Store
 Thumbs.db
+*PKG-INFO
+*.txt
