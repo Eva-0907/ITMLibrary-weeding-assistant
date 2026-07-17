@@ -11,8 +11,8 @@ if /i "%~1"=="setup" (
         exit /b 1
     )
 
-    .uvenv\Scripts\python.exe -m pip install --index-url "https://pypi.org/simple/" --upgrade pip uv
-    .uvenv\Scripts\uv.exe sync --python 3.13 --index-url "https://pypi.org/simple/" --index-strategy first-index
+    .uvenv\Scripts\python.exe -m pip install  --upgrade pip uv
+    .uvenv\Scripts\uv.exe sync --python 3.13 --index-strategy first-index
     goto :eof
 )
 

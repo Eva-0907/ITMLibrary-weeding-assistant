@@ -181,6 +181,7 @@ class UniCatLookupConcurrent(UniCatLookupBase):
             max_retries_on_timeout=3,
             show_progress_bar=show_progress,
             timeout_s=self.timeout,
+            ssl_verify=False
         ).run(
             requests_config,
             estimated_input_collection_size=len(isbns),
