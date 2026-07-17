@@ -10,5 +10,4 @@ venv/
 .uvenv
 .DS_Store
 Thumbs.db
-**/**/*PKG-INFO
-**/**/*.txt
+src/itm_weeding_assistant.egg-info
