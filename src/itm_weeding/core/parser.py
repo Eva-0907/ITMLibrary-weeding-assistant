@@ -8,7 +8,12 @@ from .helpers import make_circ_key
 
 
 def parse_ris(text):
-    """Parse RIS format bibliography data into record dictionaries."""
+    """Parse raw RIS text into a list of dictionary-based bibliographic records.
+
+    The function splits the input into logical record blocks, reads each field
+    line, and normalizes repeated tags into lists when needed. Records that
+    contain a title-like field are retained for downstream processing.
+    """
     records = []
     for block in re.split(r"\nER\s*-", text):
         rec = {}
@@ -30,17 +35,12 @@ def parse_ris(text):
 
 
 def load_circulation(path, delimiter, b_col=1, c_col=2, y_col=3):
-    """Load circulation data from CSV/TSV file.
-    
-    Args:
-        path: Path to circulation data file
-        delimiter: Column delimiter (';' for CSV, '\t' for TSV)
-        b_col: Barnard column index (0-based)
-        c_col: Call number column index (0-based)
-        y_col: Year column index (0-based)
-    
-    Returns:
-        Set of unique circulation keys (barnard|call_num|year)
+    """Load circulation history data from a CSV or TSV file.
+
+    Each row is converted into a normalized circulation key of the form
+    barnard|call_number|year, which can be matched against bibliographic
+    records. Rows missing the required columns or call-number values are
+    ignored.
     """
     borrowed = set()
     try:

@@ -39,6 +39,7 @@ class UniCatLookupBase:
     # ------------------------------------------------------------------
 
     def _build_url(self, isbn: str) -> str:
+        """Build the SRU request URL for a single ISBN."""
         params = {
             "version": "1.1",
             "operation": "searchRetrieve",
@@ -49,7 +50,7 @@ class UniCatLookupBase:
 
     @staticmethod
     def _parse_count(xml_text: str):
-        """Return numberOfRecords from an SRU XML response, or None on error."""
+        """Extract the numberOfRecords value from an SRU XML response."""
         try:
             root = ET.fromstring(xml_text)
             el = root.find(f"{{{_SRU_NS}}}numberOfRecords")
@@ -61,6 +62,7 @@ class UniCatLookupBase:
 
     @staticmethod
     def _isbn_from_url(url: str) -> str:
+        """Extract the ISBN from a request URL query string."""
         raw_query = urllib.parse.parse_qs(
             urllib.parse.urlparse(url).query
         ).get("query", [""])[0]
@@ -71,10 +73,10 @@ class UniCatLookupBase:
     # ------------------------------------------------------------------
 
     def check_isbn(self, isbn: str, retries: int = 3, debug: bool = False):
-        """Check whether any Belgian library holds this ISBN.
+        """Check whether a single ISBN is held by any Belgian library.
 
-        Returns:
-            Tuple: ("held", None) | ("not_held", None) | (None, error_msg)
+        The method performs a direct request to UniCat, retries transient
+        failures, and returns a simple held/not-held result or an error string.
         """
         url = self._build_url(isbn)
 
@@ -160,8 +162,8 @@ class UniCatLookupConcurrent(UniCatLookupBase):
     def batch_check_isbns(self, isbns: list, show_progress: bool = False) -> dict:
         """Batch-check ISBNs concurrently via SPARP.
 
-        Returns:
-            Dict mapping ISBN -> "held" | "not_held" | None
+        This uses the SPARP library to issue requests concurrently, which is much
+        faster for large batches but more complex than the single-ISBN flow.
         """
         if not isbns:
             return {}

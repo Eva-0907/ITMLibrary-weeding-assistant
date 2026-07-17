@@ -1,0 +1,146 @@
+How to read and interpret this codebase
+=====================================
+
+This project is a library weeding assistant. It reads bibliographic records, evaluates whether each item should be kept, weeded, reviewed, or skipped, and exports the result to Excel.
+
+A good way to read the code is to follow one record from input to output.
+
+1. Start at the entry point
+---------------------------
+The main entry point is src/itm_weeding/main.py.
+Open the file and look for the main() function. That function is the orchestrator.
+It does the following:
+- reads one or more RIS files
+- parses the files into individual records
+- loads circulation history data
+- prepares collection-wide context such as duplicate counts and edition groups
+- evaluates each record
+- enriches the result with UniCat availability data
+- exports the final rows to Excel
+
+2. Follow the data path for one record
+--------------------------------------
+A single record moves through the program in this order:
+
+Step 1: RIS parsing
+- main() calls parse_ris() from src/itm_weeding/core/parser.py.
+- parse_ris() turns raw RIS text into a dictionary-like record structure.
+- Each record contains fields such as title, author, year, ISBN, location, and Barnard class.
+
+Step 2: Context preparation
+- main() builds shared information for the whole collection before judging records.
+- This includes duplicate ISBN counts, Barnard class counts, and groups of related editions or translations.
+- These values are passed into the rules engine so that each record can be compared with the rest of the collection.
+
+Step 3: Rule evaluation
+- main() calls apply_rules() from src/itm_weeding/core/rules_engine.py.
+- apply_rules() creates a RulesEngine object and runs the decision logic.
+- The rules engine inspects the record and adds flags such as:
+  - historical relevance
+  - circulation history
+  - duplicate or older-edition status
+  - publication year
+  - regional or document-type relevance
+
+Step 4: UniCat enrichment
+- After the decision is made, the program checks whether the item is held by Belgian libraries via UniCat.
+- This happens through the lookup layer in src/itm_weeding/unicat/lookup.py.
+- Results are cached in src/itm_weeding/unicat/cache.py so repeated lookups are faster.
+
+Step 5: Report generation
+- The evaluated record is turned into a report row.
+- The row includes the recommendation, the reasons, and the UniCat status.
+- The Excel exporter in src/itm_weeding/report/builder.py writes those rows to a spreadsheet.
+
+3. How to read the modules
+--------------------------
+Use this mental model:
+
+- src/itm_weeding/main.py
+  This is the top-level workflow. Read it first to understand the overall pipeline.
+
+- src/itm_weeding/core/parser.py
+  This handles input parsing and loading of circulation files.
+
+- src/itm_weeding/core/helpers.py
+  This contains small utility functions for extracting and normalizing fields from records.
+  If a rule needs title, year, ISBN, Barnard code, or circulation key, it usually comes from here.
+
+- src/itm_weeding/core/rules_engine.py
+  This is the decision engine. Most of the business logic lives here.
+  It is organized into small rule methods, each responsible for one type of rule.
+
+- src/itm_weeding/unicat/lookup.py
+  This talks to the UniCat API.
+
+- src/itm_weeding/unicat/cache.py
+  This stores previous UniCat lookups so the program does not need to query the API every time.
+
+- src/itm_weeding/report/builder.py
+  This formats the output rows and writes the Excel workbook.
+
+4. Concurrent vs non-concurrent mode
+-----------------------------------
+The program supports two modes for UniCat lookups:
+
+Non-concurrent mode
+- The program checks each ISBN one by one.
+- This is simpler to follow and easier to debug.
+- It is slower when there are many ISBNs.
+- Good for small batches or when you are investigating errors.
+
+Concurrent mode
+- The program sends several ISBN lookups in parallel.
+- It is faster for large batches.
+- It is more complex and uses more resources.
+- It can also be less transparent because multiple requests are happening at the same time.
+
+In practice:
+- use non-concurrent mode when you want clarity and simplicity
+- use concurrent mode when you need speed and the dataset is large
+
+5. Why the setup command is needed
+----------------------------------
+A setup step is needed because this project depends on Python packages and a consistent environment.
+Without setup, you may see errors such as missing modules, the wrong Python version, or import failures.
+
+The setup command is responsible for:
+- creating or refreshing the virtual environment
+- installing dependencies such as openpyxl, requests, and sparp
+- ensuring the project can be run consistently on your machine
+
+On Windows, use:
+- .\run.bat setup
+
+On Linux or macOS, use:
+- make setup
+
+If you skip setup, the application may fail even if the source code is correct.
+
+6. Typical commands
+-------------------
+Windows:
+- .\run.bat setup
+- .\run.bat run
+- .\run.bat run-concurrent
+
+Linux / macOS:
+- make setup
+- make run
+- make run-concurrent
+
+7. How to debug the flow
+------------------------
+If you want to understand the code quickly, use this approach:
+- read main.py first
+- find the place where a record is evaluated
+- inspect the rule engine methods one by one
+- print or inspect the intermediate values in a single record
+- compare the recommendation with the flags that were added
+
+The most important thing to remember is that the code is organized around a simple pattern:
+- collect input
+- enrich with context
+- apply rules
+- add external lookup information
+- export the result
