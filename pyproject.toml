@@ -1,0 +1,121 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "itm-weeding-assistant"
+version = "10.0.0"
+description = "Library weeding decision support system for ITG Antwerp tropical medicine collection"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+license = { text = "MIT" }
+authors = [
+    { name = "ITG Antwerp", email = "lib@itg.be" }
+]
+keywords = [
+    "library",
+    "weeding",
+    "collection-management",
+    "tropical-medicine",
+    "decision-support"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+]
+
+dependencies = [
+    "openpyxl>=3.0.0",
+    "requests>=2.28.0",
+    "beautifulsoup4>=4.11.0",
+    "urllib3>=1.26.0",
+    "sparp",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=3.0",
+    "black>=22.0",
+    "flake8>=4.0",
+    "mypy>=0.950",
+]
+docs = [
+    "sphinx>=5.0",
+    "sphinx-rtd-theme>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ITG-Antwerp/ITMLibrary-weeding-assistant"
+Documentation = "https://github.com/ITG-Antwerp/ITMLibrary-weeding-assistant/blob/main/README.md"
+Repository = "https://github.com/ITG-Antwerp/ITMLibrary-weeding-assistant.git"
+Issues = "https://github.com/ITG-Antwerp/ITMLibrary-weeding-assistant/issues"
+
+[project.scripts]
+itm-weeding = "itm_weeding.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+multi_line_mode = 3
+include_trailing_comma = true
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --cov=src/itm_weeding --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/itm_weeding"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
