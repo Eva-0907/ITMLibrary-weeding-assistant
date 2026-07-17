@@ -49,7 +49,7 @@ RETENTION_FLAGS = {
     "P": "H2", "PM": "H2", "PY": "H2", "PYB": "H2", "PYE": "H2", "PYH": "H2", "PYHR": "H2", "PYHS": "H2", "PYK": "H2",
     "Q": "H3", "QA": "H3", "QD": "H3", "QH": "H3", "QM": "H3", "QR": "H3",
     "R": "H3", "RJ": "H3", "RN": "H3", "RK": "H3", "RNA": "H2", "RNR": "H3", "RS": "H3",
-    "S": "H2", "SA": "H2", "SB": "H2", "SC": "H2", "SD": "H2", "SJA": "H2", "SO": "H2", "SOA": "H3", "SOB": "H2", "SOC": "H2", "SOCA": "H2", "SOD": "H2", "SOE": "H2", "SOF": "H2", "SOG": "H2", "SOH": "H2", "SON": "H2", "SOP": "H2", "SP": "H2", "SPA": "H2", "SPZ": "H2", "SS": "H2", "ST": "H2", "SW": "H2",
+    "S": "H2", "SA": "H2", "SB": "H2", "SC": "H2", "SD": "H2", "SJA": "H2", "SO": "H2", "SOA": "H2", "SOB": "H2", "SOC": "H2", "SOCA": "H2", "SOD": "H2", "SOE": "H2", "SOF": "H2", "SOG": "H2", "SOH": "H2", "SON": "H2", "SOP": "H2", "SP": "H2", "SPA": "H2", "SPZ": "H2", "SS": "H2", "ST": "H2", "SW": "H2",
     "U": "H2", "UB": "H1", "UBR": "H1", "UH": "H2", "UI": "H2", "UJ": "H2", "UK": "H2", "UL": "H2", "UO": "H2", "UP": "H2", "UPT": "H2", "UQ": "H2", "UR": "H2", "US": "H2", "UT": "H2", "UTH": "H2", "UTT": "H2", "UTU": "H2", "UV": "H2", "UW": "H2", "UWB": "H2", "UWE": "H2", "UX": "H2", "UY": "H2",
     "V": "H3", "VA": "H3", "VB": "H3", "VC": "H3", "VD": "H3", "VE": "H3", "VF": "H3", "VG": "H3", "W": "H3",
     "X": "H2", "XC": "H2", "XE": "H2", "XH": "H2", "XHW": "H2", "XJ": "H2", "XK": "H2", "XL": "H2", "XM": "H2", "XN": "H2", "XO": "H2", "XS": "H2", "XW": "H3", "XXB": "H3", "XXN": "H3", "XXO": "H3", "XXU": "H3", "XXZ": "H2", "XZ": "H2",
